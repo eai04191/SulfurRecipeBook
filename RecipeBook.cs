@@ -27,9 +27,11 @@ internal class ReversePatch
 [HarmonyPatch]
 internal class RecipeBook
 {
-    private static readonly List<CraftingRecipe> AllRecipe = Singleton<CraftingManager>
-        .Instance.cookingRecipes.Where(r => r.canBeCrafted)
-        .ToList();
+    private static readonly List<CraftingRecipe> AllRecipe = new Func<List<CraftingRecipe>>(() =>
+    {
+        var cm = Singleton<CraftingManager>.Instance;
+        return cm.genericRecipes.Concat(cm.cookingRecipes).Where(r => r.canBeCrafted).ToList();
+    })();
 
     private static readonly RecipeAnalyzer Analyzer = new();
 
