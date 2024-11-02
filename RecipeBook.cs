@@ -52,7 +52,7 @@ internal class RecipeBook
     [HarmonyPatch(typeof(ItemDescription), nameof(ItemDescription.Setup))]
     static void DescriptionSetupPostfix(ItemDescription __instance, InventoryItem inventoryItem)
     {
-        Plugin.Logger.LogInfo($"I: {inventoryItem.itemDefinition.LocalizedDisplayName}");
+        // Plugin.Logger.LogInfo($"I: {inventoryItem.itemDefinition.LocalizedDisplayName}");
         var recipes = FindRecipe(inventoryItem);
         if (recipes.Count == 0)
         {
