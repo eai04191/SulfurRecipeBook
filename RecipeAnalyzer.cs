@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using PerfectRandom.Sulfur.Core;
+using PerfectRandom.Sulfur.Core.Items;
+using PerfectRandom.Sulfur.Core.Stats;
 
 namespace SulfurRecipeBook;
 
@@ -11,32 +13,25 @@ internal class IngredientRange
     public int Max { get; set; } = 0;
 }
 
-public class RecipeAnalyzer
+public static class RecipeAnalyzer
 {
-    // identifierと表示用の名前のマッピング
-    private readonly Dictionary<string, string> _displayNames = new();
-
-    public Dictionary<string, string> AnalyzeRecipes(List<CraftingRecipe> recipes)
+    public static Dictionary<string, string> AnalyzeRecipes(List<CraftingRecipe> recipes)
     {
-        _displayNames.Clear();
-
         // 材料の組み合わせごとの分析結果を保持
         var ingredientCombinations =
             new Dictionary<
                 string,
-                List<(Dictionary<string, int> Ingredients, string Result, int Quantity)>
+                List<(
+                    Dictionary<string, int> Ingredients,
+                    string Result,
+                    int Quantity,
+                    CraftingRecipe Recipe
+                )>
             >();
 
         // レシピを材料の組み合わせでグループ化
         foreach (var recipe in recipes)
         {
-            // 表示名のマッピングを記録
-            foreach (var ingredient in recipe.itemsNeeded)
-            {
-                _displayNames[ingredient.item.identifier] = ingredient.item.LocalizedDisplayName;
-            }
-            _displayNames[recipe.createsItem.identifier] = recipe.createsItem.LocalizedDisplayName;
-
             // 材料をidentifierでソートしてキーを作成
             var ingredients = recipe
                 .itemsNeeded.Select(i => i.item.identifier)
@@ -52,10 +47,10 @@ public class RecipeAnalyzer
             if (!ingredientCombinations.ContainsKey(ingredientKey))
             {
                 ingredientCombinations[ingredientKey] =
-                    new List<(Dictionary<string, int>, string, int)>();
+                    new List<(Dictionary<string, int>, string, int, CraftingRecipe)>();
             }
             ingredientCombinations[ingredientKey]
-                .Add((quantities, recipe.createsItem.identifier, recipe.quantityCreated));
+                .Add((quantities, recipe.createsItem.identifier, recipe.quantityCreated, recipe));
         }
 
         // 結果をフォーマット
@@ -64,9 +59,10 @@ public class RecipeAnalyzer
         {
             // 材料ごとの使用量の最小値と最大値を計算
             var ingredientRanges = new Dictionary<string, IngredientRange>();
-            var resultRanges = new Dictionary<string, IngredientRange>();
+            var resultRanges =
+                new Dictionary<string, (IngredientRange Range, List<CraftingRecipe> Recipes)>();
 
-            foreach (var (ingredients, result, quantity) in recipesList)
+            foreach (var (ingredients, result, quantity, recipe) in recipesList)
             {
                 // 材料の範囲を更新
                 foreach (var (ingName, ingredientQuantity) in ingredients)
@@ -88,27 +84,59 @@ public class RecipeAnalyzer
                 // 生成物の範囲を更新
                 if (!resultRanges.ContainsKey(result))
                 {
-                    resultRanges[result] = new IngredientRange();
+                    resultRanges[result] = (new IngredientRange(), new List<CraftingRecipe>());
                 }
-                resultRanges[result].Min = Math.Min(resultRanges[result].Min, quantity);
-                resultRanges[result].Max = Math.Max(resultRanges[result].Max, quantity);
+                resultRanges[result].Range.Min = Math.Min(resultRanges[result].Range.Min, quantity);
+                resultRanges[result].Range.Max = Math.Max(resultRanges[result].Range.Max, quantity);
+                resultRanges[result].Recipes.Add(recipe);
             }
 
-            // 結果を整形（LocalizedDisplayNameを使用）
+            // 結果を整形
             var ingredientsStr = ingredientRanges
-                .Select(kvp => FormatRange(_displayNames[kvp.Key], kvp.Value))
+                .Select(kvp =>
+                    FormatRange(GetDisplayName(recipesList[0].Recipe, kvp.Key), kvp.Value)
+                )
                 .ToList();
 
-            foreach (var (resultName, ranges) in resultRanges)
+            foreach (var (resultName, (ranges, recipesInRange)) in resultRanges)
             {
-                var resultStr = FormatRange(_displayNames[resultName], ranges);
+                var efficiency = CalculateEfficiency(recipesInRange[0].createsItem);
+
+                var resultStr = FormatRange(GetDisplayName(recipesInRange[0], resultName), ranges);
+                if (efficiency > 0)
+                {
+                    resultStr += $"<size=-1> [{efficiency:F2}]</size>";
+                }
+
                 var formula =
-                    $"{string.Join("<size=-1><color=#6D8791> + </color></size>", ingredientsStr)}<size=-1><color=#6D8791> = </color></size>{resultStr}";
+                    string.Join("<size=-1><color=#6D8791> + </color></size>", ingredientsStr)
+                    + "<size=-1><color=#6D8791> = </color></size>"
+                    + resultStr;
                 results[ingKey] = formula;
             }
         }
 
         return results;
+    }
+
+    private static string GetDisplayName(CraftingRecipe recipe, string identifier)
+    {
+        if (identifier == recipe.createsItem.identifier)
+        {
+            return recipe.createsItem.LocalizedDisplayName;
+        }
+
+        var ingredient = recipe.itemsNeeded.FirstOrDefault(i => i.item.identifier == identifier);
+        return ingredient.item.LocalizedDisplayName ?? identifier;
+    }
+
+    public static float CalculateEfficiency(ItemDefinition item)
+    {
+        var inventorySize = item.inventorySize.x * item.inventorySize.y;
+        var healthRegenBuff = item.buffsOnConsume.Find(buff =>
+            buff.attributeNew.id == EntityAttributes.Stat_HealthRegen
+        );
+        return healthRegenBuff?.totalValueOverride / inventorySize ?? 0f;
     }
 
     private static string FormatRange(string itemName, IngredientRange range)

@@ -33,8 +33,6 @@ internal class RecipeBook
         return cm.genericRecipes.Concat(cm.cookingRecipes).Where(r => r.canBeCrafted).ToList();
     })();
 
-    private static readonly RecipeAnalyzer Analyzer = new();
-
     private static List<CraftingRecipe> FindRecipe(InventoryItem targetItem)
     {
         var result = AllRecipe
@@ -62,7 +60,7 @@ internal class RecipeBook
 
         ReversePatch.AddTextLineAsAttribute(__instance, "Recipes:");
 
-        var results = Analyzer.AnalyzeRecipes(recipes);
+        var results = RecipeAnalyzer.AnalyzeRecipes(recipes);
 
         foreach (var recipe in results.Values)
         {
