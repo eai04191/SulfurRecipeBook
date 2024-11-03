@@ -100,7 +100,7 @@ public static class RecipeAnalyzer
 
             foreach (var (resultName, (ranges, recipesInRange)) in resultRanges)
             {
-                var efficiency = CalculateEfficiency(recipesInRange[0].createsItem);
+                var efficiency = CalculateHealPerSlot(recipesInRange[0].createsItem);
 
                 var resultStr = FormatRange(GetDisplayName(recipesInRange[0], resultName), ranges);
                 if (efficiency > 0)
@@ -130,7 +130,7 @@ public static class RecipeAnalyzer
         return ingredient.item.LocalizedDisplayName ?? identifier;
     }
 
-    public static float CalculateEfficiency(ItemDefinition item)
+    public static float CalculateHealPerSlot(ItemDefinition item)
     {
         var inventorySize = item.inventorySize.x * item.inventorySize.y;
         var healthRegenBuff = item.buffsOnConsume.Find(buff =>

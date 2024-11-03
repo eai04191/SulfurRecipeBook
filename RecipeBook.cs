@@ -2,9 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
+using I2.Loc;
 using PerfectRandom.Sulfur.Core;
 using PerfectRandom.Sulfur.Core.Items;
+using PerfectRandom.Sulfur.Core.Stats;
 using PerfectRandom.Sulfur.Core.UI.ItemDescription;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -65,14 +68,68 @@ internal class RecipeBook
         foreach (var recipe in results.Values)
         {
             ReversePatch.AddTextLineAsDescription(__instance, recipe);
-            UpdatePadding(__instance);
+            UpdateLatestHorizontalLayoutGroupPadding(__instance, new RectOffset(8, 2, 2, 0));
         }
 
         var width = results.Count > 20 ? 500 : 350;
         __instance.gameObject.GetComponent<RectTransform>().sizeDelta = new Vector2(width, 100);
     }
 
-    private static void UpdatePadding(ItemDescription instance)
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(ItemDescription), "AddDescriptionText")]
+    static void AddDescriptionTextPostfix(ItemDescription __instance, string descriptionText)
+    {
+        // ヒールアイテムのdescriptionの場合回復効率を表示
+        var item = Traverse
+            .Create(__instance)
+            .Field("inventoryRepresentation")
+            .GetValue<InventoryItem>();
+
+        if (
+            item.itemDefinition.buffsOnConsume.Find(b =>
+                b.attributeNew.id == EntityAttributes.Stat_HealthRegen
+            ) == null
+        )
+        {
+            return;
+        }
+
+        foreach (var buff in item.itemDefinition.buffsOnConsume)
+        {
+            if (buff.attributeNew.id != EntityAttributes.Stat_HealthRegen)
+            {
+                return;
+            }
+
+            var rawTranslation = LocalizationManager.GetTranslation(
+                "ItemDescriptions/DynamicString_HealthConsumable",
+                true,
+                0,
+                true,
+                false,
+                null,
+                null,
+                true
+            );
+            var translation = rawTranslation
+                .Replace("VALUE_X", buff.totalValueOverride.ToString())
+                .Replace("DURATION_X", buff.duration.ToString());
+
+            if (translation != descriptionText)
+            {
+                return;
+            }
+
+            var hps = RecipeAnalyzer.CalculateHealPerSlot(item.itemDefinition);
+            var newDescription = $"{descriptionText} [Heal per Slot: {hps}]";
+            UpdateLatestDescription(__instance, newDescription);
+        }
+    }
+
+    private static void UpdateLatestHorizontalLayoutGroupPadding(
+        ItemDescription instance,
+        RectOffset padding
+    )
     {
         var contents = instance.transform.GetChild(0);
         var lastChild = contents.GetChild(contents.childCount - 1);
@@ -82,6 +139,21 @@ internal class RecipeBook
             Plugin.Logger.LogInfo("No HorizontalLayoutGroup found.");
             return;
         }
-        layoutGroup.padding.bottom = 0;
+
+        layoutGroup.padding = padding;
+    }
+
+    private static void UpdateLatestDescription(ItemDescription instance, string newDescription)
+    {
+        var contents = instance.transform.GetChild(0);
+        var lastChild = contents.GetChild(contents.childCount - 1);
+        var tm = lastChild.GetComponentInChildren<TextMeshProUGUI>();
+        if (tm == null)
+        {
+            Plugin.Logger.LogInfo("No TextMeshProUGUI found.");
+            return;
+        }
+
+        tm.text = newDescription;
     }
 }

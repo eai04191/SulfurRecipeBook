@@ -29,8 +29,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="I2AsmDef">
+      <HintPath>G:\Libraries\Steam\steamapps\common\SULFUR\Sulfur_Data\Managed\I2AsmDef.dll</HintPath>
+    </Reference>
     <Reference Include="PerfectRandom.Sulfur.Core" Private="False">
       <HintPath>G:\Libraries\Steam\steamapps\common\SULFUR\Sulfur_Data\Managed\PerfectRandom.Sulfur.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>G:\Libraries\Steam\steamapps\common\SULFUR\Sulfur_Data\Managed\Unity.TextMeshPro.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UI" Private="False">
       <HintPath>G:\Libraries\Steam\steamapps\common\SULFUR\Sulfur_Data\Managed\UnityEngine.UI.dll</HintPath>
