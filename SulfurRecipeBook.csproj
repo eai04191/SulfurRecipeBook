@@ -29,13 +29,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="I2AsmDef">
+    <Reference Include="I2AsmDef" Private="False">
       <HintPath>G:\Libraries\Steam\steamapps\common\SULFUR\Sulfur_Data\Managed\I2AsmDef.dll</HintPath>
     </Reference>
     <Reference Include="PerfectRandom.Sulfur.Core" Private="False">
       <HintPath>G:\Libraries\Steam\steamapps\common\SULFUR\Sulfur_Data\Managed\PerfectRandom.Sulfur.Core.dll</HintPath>
     </Reference>
-    <Reference Include="Unity.TextMeshPro">
+    <Reference Include="Unity.TextMeshPro" Private="False">
       <HintPath>G:\Libraries\Steam\steamapps\common\SULFUR\Sulfur_Data\Managed\Unity.TextMeshPro.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UI" Private="False">
