@@ -36,6 +36,8 @@ internal class RecipeBook
         return cm.genericRecipes.Concat(cm.cookingRecipes).Where(r => r.canBeCrafted).ToList();
     })();
 
+    private static bool _fontAtlasPopulationModeUpdated;
+
     private static List<CraftingRecipe> FindRecipe(InventoryItem targetItem)
     {
         var result = AllRecipe
@@ -69,6 +71,12 @@ internal class RecipeBook
         {
             ReversePatch.AddTextLineAsDescription(__instance, recipe);
             UpdateLatestHorizontalLayoutGroupPadding(__instance, new RectOffset(8, 2, 2, 0));
+        }
+
+        if (!_fontAtlasPopulationModeUpdated)
+        {
+            UpdateLatestDescriptionFontAtlasPopulationMode(__instance);
+            _fontAtlasPopulationModeUpdated = true;
         }
 
         var width = results.Count > 20 ? 500 : 350;
@@ -160,5 +168,20 @@ internal class RecipeBook
         }
 
         tm.text = newDescription;
+    }
+
+    private static void UpdateLatestDescriptionFontAtlasPopulationMode(ItemDescription instance)
+    {
+        var contents = instance.transform.GetChild(0);
+        var lastChild = contents.GetChild(contents.childCount - 1);
+        var tm = lastChild.GetComponentInChildren<TextMeshProUGUI>();
+        if (tm == null)
+        {
+            Plugin.Logger.LogInfo("No TextMeshProUGUI found.");
+            return;
+        }
+
+        Plugin.Logger.LogInfo("Updating font settings: " + tm.name);
+        tm.font.atlasPopulationMode = AtlasPopulationMode.Static;
     }
 }
