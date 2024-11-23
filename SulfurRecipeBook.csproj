@@ -4,7 +4,9 @@
         <TargetFramework>netstandard2.1</TargetFramework>
         <AssemblyName>net.mizle.SulfurRecipeBook</AssemblyName>
         <Product>SulfurRecipeBook</Product>
-        <Version>2.0.0</Version>
+        <Version>2.0.1</Version>
+        <Description>Item tooltips show recipes that can be created with that item.</Description>
+        <RepositoryUrl>https://github.com/eai04191/SulfurRecipeBook</RepositoryUrl>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <LangVersion>latest</LangVersion>
         <DebugType>none</DebugType>
@@ -15,7 +17,7 @@
         </RestoreAdditionalProjectSources>
         <RootNamespace>SulfurRecipeBook</RootNamespace>
     </PropertyGroup>
-    
+
     <ItemGroup>
         <PackageReference Include="BepInEx.Analyzers" Version="1.*" PrivateAssets="all"/>
         <PackageReference Include="BepInEx.Core" Version="5.*"/>
@@ -23,11 +25,11 @@
         <!-- game is 2022.3.37 but it's not available -->
         <PackageReference Include="UnityEngine.Modules" Version="2022.3.38" IncludeAssets="compile"/>
     </ItemGroup>
-    
+
     <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
         <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all"/>
     </ItemGroup>
-    
+
     <ItemGroup>
         <Reference Include="I2AsmDef" Private="False">
             <HintPath>G:\Libraries\Steam\steamapps\common\SULFUR\Sulfur_Data\Managed\I2AsmDef.dll</HintPath>
