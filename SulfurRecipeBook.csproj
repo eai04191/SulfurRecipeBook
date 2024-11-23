@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>net.mizle.SulfurRecipeBook</AssemblyName>
     <Product>SulfurRecipeBook</Product>
-    <Version>1.0.1</Version>
+    <Version>1.1.0</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
     <DebugType>none</DebugType>
