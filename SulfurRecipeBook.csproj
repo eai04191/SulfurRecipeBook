@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>net.mizle.SulfurRecipeBook</AssemblyName>
-    <Product>Item tooltips show recipes that can be created with that item.</Product>
+    <Product>SulfurRecipeBook</Product>
     <Version>1.0.1</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
