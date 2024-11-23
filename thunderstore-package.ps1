@@ -142,7 +142,8 @@ else {
 
 # Copy icon, DLL and README
 Copy-File -source "./docs/thunderstore-icon.png" -destination "$packageDir/icon.png"
-Copy-File -source "./bin/Release/$($projectInfo.TargetFramework)/$($projectInfo.AssemblyName).dll" -destination "$packageDir/$($projectInfo.AssemblyName).dll"
+New-PackageDirectory -path "$packageDir/plugins"
+Copy-File -source "./bin/Release/$($projectInfo.TargetFramework)/$($projectInfo.AssemblyName).dll" -destination "$packageDir/plugins/$($projectInfo.AssemblyName).dll"
 Copy-ReadmeFile -source "./README.md" -destination "$packageDir/README.md"
 
 New-ZipPackage -sourceDir $packageDir -projectName $packageDir
