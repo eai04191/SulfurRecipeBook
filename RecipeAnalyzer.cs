@@ -103,7 +103,7 @@ public static class RecipeAnalyzer
                 var efficiency = CalculateHealPerSlot(recipesInRange[0].createsItem);
 
                 var resultStr = FormatRange(GetDisplayName(recipesInRange[0], resultName), ranges);
-                if (efficiency > 0)
+                if (Plugin.ConfigShowHealPerSlot.Value && efficiency > 0)
                 {
                     resultStr += $"<size=-1> [{efficiency:F2}]</size>";
                 }

@@ -80,6 +80,11 @@ internal class RecipeBook
     static void AddDescriptionTextPostfix(ItemDescription __instance, string descriptionText)
     {
         // ヒールアイテムのdescriptionの場合回復効率を表示
+        if (Plugin.ConfigShowHealPerSlot.Value == false)
+        {
+            return;
+        }
+
         var item = Traverse
             .Create(__instance)
             .Field("inventoryRepresentation")
