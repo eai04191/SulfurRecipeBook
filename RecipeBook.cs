@@ -1,4 +1,5 @@
-﻿using System;
+﻿#nullable enable
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
@@ -6,6 +7,7 @@ using I2.Loc;
 using PerfectRandom.Sulfur.Core;
 using PerfectRandom.Sulfur.Core.Items;
 using PerfectRandom.Sulfur.Core.Stats;
+using PerfectRandom.Sulfur.Core.UI.Inventory;
 using PerfectRandom.Sulfur.Core.UI.ItemDescription;
 using TMPro;
 using UnityEngine;
@@ -18,15 +20,15 @@ internal class ReversePatch
 {
     [HarmonyReversePatch]
     [HarmonyPatch(typeof(ItemDescription), "AddAttribute",
-        new Type[] { typeof(string), typeof(int), typeof(string), typeof(string), typeof(bool) },
-        new ArgumentType[] { ArgumentType.Normal, ArgumentType.Ref, ArgumentType.Normal, ArgumentType.Normal, ArgumentType.Normal })]
+        new[] { typeof(string), typeof(int), typeof(string), typeof(string), typeof(bool) },
+        new[] { ArgumentType.Normal, ArgumentType.Ref, ArgumentType.Normal, ArgumentType.Normal, ArgumentType.Normal })]
     public static void AddTextLineAsAttribute(object instance, string key, ref int childIndex, string value = "", string modifier = "", bool skipSeparator = false) =>
         throw new NotImplementedException("It's a stub");
 
     [HarmonyReversePatch]
     [HarmonyPatch(typeof(ItemDescription), "AddDescriptionText",
-        new Type[] { typeof(string), typeof(int) },
-        new ArgumentType[] { ArgumentType.Normal, ArgumentType.Ref })]
+        new[] { typeof(string), typeof(int) },
+        new[] { ArgumentType.Normal, ArgumentType.Ref })]
     public static void AddTextLineAsDescription(object instance, string descriptionText, ref int childIndex) =>
         throw new NotImplementedException("It's a stub");
 }
@@ -41,6 +43,22 @@ internal class RecipeBook
     })();
 
     private static bool _fontAtlasPopulationModeUpdated;
+    private static int _currentPage;
+    private static int _totalPages;
+    private const int ItemsPerPage = 20;
+    private static ItemDescription? _lastItemDescription;
+    private static InventoryItem? _lastInventoryItem;
+    private static Vector2? _originalSizeDelta;
+
+    private static InventoryItem GetInventoryItem(ItemDescription instance)
+    {
+        return Traverse.Create(instance).Field("inventoryRepresentation").GetValue<InventoryItem>();
+    }
+
+    private static Transform GetContentTransform(ItemDescription instance)
+    {
+        return Traverse.Create(instance).Field("contentTransform").GetValue<Transform>();
+    }
 
     private static List<RecipeData> FindRecipe(InventoryItem targetItem)
     {
@@ -54,54 +72,109 @@ internal class RecipeBook
 
         return result;
     }
+    
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(InventoryUI), "Update")]
+    private static void HandlePageNavigationInput()
+    {
+        var newPage = _currentPage;
+
+        if (Input.GetKeyDown(Plugin.ConfigPrevPageKey.Value) && _currentPage > 0)
+        {
+            newPage = _currentPage - 1;
+        }
+        else if (Input.GetKeyDown(Plugin.ConfigNextPageKey.Value) && _currentPage < _totalPages - 1)
+        {
+            newPage = _currentPage + 1;
+        }
+        if (newPage == _currentPage) return;
+        
+        _currentPage = newPage;
+        RefreshItemDescription();
+        Plugin.Logger.LogInfo($"Switched to page {_currentPage}");
+    }
+
+    private static void RefreshItemDescription()
+    {
+        if (_lastItemDescription is null) return;
+        var inventoryItem = GetInventoryItem(_lastItemDescription);
+
+        // Trigger OnDisable to clear pooled UI elements
+        _lastItemDescription.gameObject.SetActive(false);
+        _lastItemDescription.gameObject.SetActive(true);
+        _lastItemDescription.Setup(inventoryItem);
+    }
 
     [HarmonyPostfix]
     [HarmonyPatch(typeof(ItemDescription), nameof(ItemDescription.Setup), new Type[] { typeof(InventoryItem) })]
-    static void DescriptionSetupPostfix(ItemDescription __instance, InventoryItem inventoryItem)
+    private static void DescriptionSetupPostfix(ItemDescription __instance, InventoryItem inventoryItem)
     {
-        // Plugin.Logger.LogInfo($"I: {inventoryItem.itemDefinition.LocalizedDisplayName}");
+        var rectTransform = __instance.gameObject.GetComponent<RectTransform>();
+
+        // Save original sizeDelta on first call
+        _originalSizeDelta ??= rectTransform.sizeDelta;
+
+        // Reset sizeDelta to original
+        rectTransform.sizeDelta = _originalSizeDelta.Value;
+
+        // Reset page when viewing a different item
+        if (_lastInventoryItem != inventoryItem)
+        {
+            _currentPage = 0;
+        }
+
+        _lastItemDescription = __instance;
+        _lastInventoryItem = inventoryItem;
+
         var recipes = FindRecipe(inventoryItem);
         if (recipes.Count == 0)
         {
             // Plugin.Logger.LogInfo("No recipe found for this item.");
             return;
         }
-
-        int childIndex = 0;
-        ReversePatch.AddTextLineAsAttribute(__instance, "Recipes:", ref childIndex);
-
+        
         var results = RecipeAnalyzer.AnalyzeRecipes(recipes);
+        Plugin.Logger.LogInfo($"Found {results.Count} recipes for this item.");
+        _totalPages = (int)Math.Ceiling((double)results.Count / ItemsPerPage);
+        var currentPageItems = results.Skip(_currentPage * ItemsPerPage).Take(ItemsPerPage).ToList();
+        
+        var contentTransform = GetContentTransform(__instance);
 
-        foreach (var recipe in results.Values)
-        {
-            ReversePatch.AddTextLineAsDescription(__instance, recipe, ref childIndex);
-            UpdateLatestHorizontalLayoutGroupPadding(__instance, new RectOffset(8, 2, 2, 0));
-        }
-
+        // Set font atlasPopulationMode to Static before adding text
+        // to disable dynamic character addition and improve performance
         if (!_fontAtlasPopulationModeUpdated)
         {
-            UpdateLatestDescriptionFontAtlasPopulationMode(__instance);
-            _fontAtlasPopulationModeUpdated = true;
+            var existingText = contentTransform.GetComponentInChildren<TextMeshProUGUI>();
+            if (existingText is not null)
+            {
+                existingText.font.atlasPopulationMode = AtlasPopulationMode.Static;
+                _fontAtlasPopulationModeUpdated = true;
+            }
         }
 
-        var width = results.Count > 20 ? 500 : 350;
-        __instance.gameObject.GetComponent<RectTransform>().sizeDelta = new Vector2(width, 100);
+        var childIndex = contentTransform.childCount;
+        ReversePatch.AddTextLineAsAttribute(__instance, $"Recipes ({_currentPage + 1} / {_totalPages}):", ref childIndex);
+
+        foreach (var recipe in currentPageItems)
+        {
+            ReversePatch.AddTextLineAsDescription(__instance, recipe.Value, ref childIndex);
+        }
+
+        // Extend width for recipe list
+        __instance.gameObject.GetComponent<RectTransform>().sizeDelta = new Vector2(300, 100);
     }
 
     [HarmonyPostfix]
     [HarmonyPatch(typeof(ItemDescription), "AddDescriptionText")]
     static void AddDescriptionTextPostfix(ItemDescription __instance, string descriptionText)
     {
-        // ヒールアイテムのdescriptionの場合回復効率を表示
+        // Show heal efficiency for healing items
         if (Plugin.ConfigShowHealPerSlot.Value == false)
         {
             return;
         }
 
-        var item = Traverse
-            .Create(__instance)
-            .Field("inventoryRepresentation")
-            .GetValue<InventoryItem>();
+        var item = GetInventoryItem(__instance);
 
         if (
             item.itemDefinition.buffsOnConsume.Find(b =>
@@ -144,23 +217,6 @@ internal class RecipeBook
         }
     }
 
-    private static void UpdateLatestHorizontalLayoutGroupPadding(
-        ItemDescription instance,
-        RectOffset padding
-    )
-    {
-        var contents = instance.transform.GetChild(0);
-        var lastChild = contents.GetChild(contents.childCount - 1);
-        var layoutGroup = lastChild.GetComponentInChildren<HorizontalLayoutGroup>();
-        if (layoutGroup == null)
-        {
-            Plugin.Logger.LogInfo("No HorizontalLayoutGroup found.");
-            return;
-        }
-
-        layoutGroup.padding = padding;
-    }
-
     private static void UpdateLatestDescription(ItemDescription instance, string newDescription)
     {
         var contents = instance.transform.GetChild(0);
@@ -173,20 +229,5 @@ internal class RecipeBook
         }
 
         tm.text = newDescription;
-    }
-
-    private static void UpdateLatestDescriptionFontAtlasPopulationMode(ItemDescription instance)
-    {
-        var contents = instance.transform.GetChild(0);
-        var lastChild = contents.GetChild(contents.childCount - 1);
-        var tm = lastChild.GetComponentInChildren<TextMeshProUGUI>();
-        if (tm == null)
-        {
-            Plugin.Logger.LogInfo("No TextMeshProUGUI found.");
-            return;
-        }
-
-        Plugin.Logger.LogInfo("Updating font settings: " + tm.name);
-        tm.font.atlasPopulationMode = AtlasPopulationMode.Static;
     }
 }
