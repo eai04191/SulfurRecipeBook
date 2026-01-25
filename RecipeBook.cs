@@ -17,33 +17,37 @@ namespace SulfurRecipeBook;
 internal class ReversePatch
 {
     [HarmonyReversePatch]
-    [HarmonyPatch(typeof(ItemDescription), "AddAttribute", typeof(string))]
-    public static void AddTextLineAsAttribute(object instance, string key) =>
+    [HarmonyPatch(typeof(ItemDescription), "AddAttribute",
+        new Type[] { typeof(string), typeof(int), typeof(string), typeof(string), typeof(bool) },
+        new ArgumentType[] { ArgumentType.Normal, ArgumentType.Ref, ArgumentType.Normal, ArgumentType.Normal, ArgumentType.Normal })]
+    public static void AddTextLineAsAttribute(object instance, string key, ref int childIndex, string value = "", string modifier = "", bool skipSeparator = false) =>
         throw new NotImplementedException("It's a stub");
 
     [HarmonyReversePatch]
-    [HarmonyPatch(typeof(ItemDescription), "AddDescriptionText", typeof(string))]
-    public static void AddTextLineAsDescription(object instance, string descriptionText) =>
+    [HarmonyPatch(typeof(ItemDescription), "AddDescriptionText",
+        new Type[] { typeof(string), typeof(int) },
+        new ArgumentType[] { ArgumentType.Normal, ArgumentType.Ref })]
+    public static void AddTextLineAsDescription(object instance, string descriptionText, ref int childIndex) =>
         throw new NotImplementedException("It's a stub");
 }
 
 [HarmonyPatch]
 internal class RecipeBook
 {
-    private static readonly List<CraftingRecipe> AllRecipe = new Func<List<CraftingRecipe>>(() =>
+    private static readonly List<RecipeData> AllRecipe = new Func<List<RecipeData>>(() =>
     {
-        var cm = Singleton<CraftingManager>.Instance;
-        return cm.genericRecipes.Concat(cm.cookingRecipes).Where(r => r.canBeCrafted).ToList();
+        var rd = StaticInstance<AsyncAssetLoading>.Instance.recipeDatabase;
+        return rd.enchantmentRecipes.Concat(rd.cookingRecipes).Where(r => r.canBeCrafted).ToList();
     })();
 
     private static bool _fontAtlasPopulationModeUpdated;
 
-    private static List<CraftingRecipe> FindRecipe(InventoryItem targetItem)
+    private static List<RecipeData> FindRecipe(InventoryItem targetItem)
     {
         var result = AllRecipe
             .Where(recipe =>
                 recipe.itemsNeeded.Any(ingredient =>
-                    ingredient.item.identifier == targetItem.itemDefinition.identifier
+                    ingredient.item.value == targetItem.itemDefinition.id.value
                 )
             )
             .ToList();
@@ -52,7 +56,7 @@ internal class RecipeBook
     }
 
     [HarmonyPostfix]
-    [HarmonyPatch(typeof(ItemDescription), nameof(ItemDescription.Setup))]
+    [HarmonyPatch(typeof(ItemDescription), nameof(ItemDescription.Setup), new Type[] { typeof(InventoryItem) })]
     static void DescriptionSetupPostfix(ItemDescription __instance, InventoryItem inventoryItem)
     {
         // Plugin.Logger.LogInfo($"I: {inventoryItem.itemDefinition.LocalizedDisplayName}");
@@ -63,13 +67,14 @@ internal class RecipeBook
             return;
         }
 
-        ReversePatch.AddTextLineAsAttribute(__instance, "Recipes:");
+        int childIndex = 0;
+        ReversePatch.AddTextLineAsAttribute(__instance, "Recipes:", ref childIndex);
 
         var results = RecipeAnalyzer.AnalyzeRecipes(recipes);
 
         foreach (var recipe in results.Values)
         {
-            ReversePatch.AddTextLineAsDescription(__instance, recipe);
+            ReversePatch.AddTextLineAsDescription(__instance, recipe, ref childIndex);
             UpdateLatestHorizontalLayoutGroupPadding(__instance, new RectOffset(8, 2, 2, 0));
         }
 
@@ -100,7 +105,7 @@ internal class RecipeBook
 
         if (
             item.itemDefinition.buffsOnConsume.Find(b =>
-                b.attributeNew.id == EntityAttributes.Stat_HealthRegen
+                b.attributeId == EntityAttributes.Stat_HealthRegen
             ) == null
         )
         {
@@ -109,7 +114,7 @@ internal class RecipeBook
 
         foreach (var buff in item.itemDefinition.buffsOnConsume)
         {
-            if (buff.attributeNew.id != EntityAttributes.Stat_HealthRegen)
+            if (buff.attributeId != EntityAttributes.Stat_HealthRegen)
             {
                 return;
             }

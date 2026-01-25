@@ -15,17 +15,17 @@ internal class IngredientRange
 
 public static class RecipeAnalyzer
 {
-    public static Dictionary<string, string> AnalyzeRecipes(List<CraftingRecipe> recipes)
+    public static Dictionary<string, string> AnalyzeRecipes(List<RecipeData> recipes)
     {
         // 材料の組み合わせごとの分析結果を保持
         var ingredientCombinations =
             new Dictionary<
                 string,
                 List<(
-                    Dictionary<string, int> Ingredients,
-                    string Result,
+                    Dictionary<ushort, int> Ingredients,
+                    ushort Result,
                     int Quantity,
-                    CraftingRecipe Recipe
+                    RecipeData Recipe
                 )>
             >();
 
@@ -34,23 +34,23 @@ public static class RecipeAnalyzer
         {
             // 材料をidentifierでソートしてキーを作成
             var ingredients = recipe
-                .itemsNeeded.Select(i => i.item.identifier)
+                .itemsNeeded.Select(i => i.item.value)
                 .OrderBy(name => name);
             var ingredientKey = string.Join("+", ingredients);
 
             // 材料の数量を記録
             var quantities = recipe.itemsNeeded.ToDictionary(
-                ing => ing.item.identifier,
+                ing => ing.item.value,
                 ing => ing.quantity
             );
 
             if (!ingredientCombinations.ContainsKey(ingredientKey))
             {
                 ingredientCombinations[ingredientKey] =
-                    new List<(Dictionary<string, int>, string, int, CraftingRecipe)>();
+                    new List<(Dictionary<ushort, int>, ushort, int, RecipeData)>();
             }
             ingredientCombinations[ingredientKey]
-                .Add((quantities, recipe.createsItem.identifier, recipe.quantityCreated, recipe));
+                .Add((quantities, recipe.createsItem.value, recipe.quantityCreated, recipe));
         }
 
         // 結果をフォーマット
@@ -58,9 +58,9 @@ public static class RecipeAnalyzer
         foreach (var (ingKey, recipesList) in ingredientCombinations)
         {
             // 材料ごとの使用量の最小値と最大値を計算
-            var ingredientRanges = new Dictionary<string, IngredientRange>();
+            var ingredientRanges = new Dictionary<ushort, IngredientRange>();
             var resultRanges =
-                new Dictionary<string, (IngredientRange Range, List<CraftingRecipe> Recipes)>();
+                new Dictionary<ushort, (IngredientRange Range, List<RecipeData> Recipes)>();
 
             foreach (var (ingredients, result, quantity, recipe) in recipesList)
             {
@@ -84,7 +84,7 @@ public static class RecipeAnalyzer
                 // 生成物の範囲を更新
                 if (!resultRanges.ContainsKey(result))
                 {
-                    resultRanges[result] = (new IngredientRange(), new List<CraftingRecipe>());
+                    resultRanges[result] = (new IngredientRange(), new List<RecipeData>());
                 }
                 resultRanges[result].Range.Min = Math.Min(resultRanges[result].Range.Min, quantity);
                 resultRanges[result].Range.Max = Math.Max(resultRanges[result].Range.Max, quantity);
@@ -100,7 +100,7 @@ public static class RecipeAnalyzer
 
             foreach (var (resultName, (ranges, recipesInRange)) in resultRanges)
             {
-                var efficiency = CalculateHealPerSlot(recipesInRange[0].createsItem);
+                var efficiency = CalculateHealPerSlot(recipesInRange[0].createsItem.GetAsset());
 
                 var resultStr = FormatRange(GetDisplayName(recipesInRange[0], resultName), ranges);
                 if (Plugin.ConfigShowHealPerSlot.Value && efficiency > 0)
@@ -119,22 +119,22 @@ public static class RecipeAnalyzer
         return results;
     }
 
-    private static string GetDisplayName(CraftingRecipe recipe, string identifier)
+    private static string GetDisplayName(RecipeData recipe, ushort identifier)
     {
-        if (identifier == recipe.createsItem.identifier)
+        if (identifier == recipe.createsItem.value)
         {
-            return recipe.createsItem.LocalizedDisplayName;
+            return recipe.createsItem.GetAsset().LocalizedDisplayName;
         }
 
-        var ingredient = recipe.itemsNeeded.FirstOrDefault(i => i.item.identifier == identifier);
-        return ingredient.item.LocalizedDisplayName ?? identifier;
+        var ingredient = recipe.itemsNeeded.FirstOrDefault(i => i.item.value == identifier);
+        return ingredient.item.GetAsset().LocalizedDisplayName ?? identifier.ToString();
     }
 
     public static float CalculateHealPerSlot(ItemDefinition item)
     {
         var inventorySize = item.inventorySize.x * item.inventorySize.y;
         var healthRegenBuff = item.buffsOnConsume.Find(buff =>
-            buff.attributeNew.id == EntityAttributes.Stat_HealthRegen
+            buff.attributeId == EntityAttributes.Stat_HealthRegen
         );
         return healthRegenBuff?.totalValueOverride / inventorySize ?? 0f;
     }
