@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using PerfectRandom.Sulfur.Core;
@@ -7,110 +7,88 @@ using PerfectRandom.Sulfur.Core.Stats;
 
 namespace SulfurRecipeBook;
 
-internal class IngredientRange
+internal class QuantityRange
 {
     public int Min { get; set; } = int.MaxValue;
-    public int Max { get; set; } = 0;
+    public int Max { get; set; }
+
+    public void Update(int value)
+    {
+        Min = Math.Min(Min, value);
+        Max = Math.Max(Max, value);
+    }
 }
 
 public static class RecipeAnalyzer
 {
+    private const string SeparatorColor = "<size=-1><color=#6D8791>";
+    private const string ColorEnd = "</color></size>";
+
     public static Dictionary<string, string> AnalyzeRecipes(List<RecipeData> recipes)
     {
-        // Hold analysis results for each ingredient combination
-        var ingredientCombinations =
-            new Dictionary<
-                string,
-                List<(
-                    Dictionary<ushort, int> Ingredients,
-                    ushort Result,
-                    int Quantity,
-                    RecipeData Recipe
-                )>
-            >();
-
         // Group recipes by ingredient combination
-        foreach (var recipe in recipes)
-        {
-            // Create key by sorting ingredients by identifier
-            var ingredients = recipe.itemsNeeded.Select(i => i.item.value).OrderBy(name => name);
-            var ingredientKey = string.Join("+", ingredients);
+        var grouped = recipes.GroupBy(recipe =>
+            string.Join("+", recipe.itemsNeeded.Select(i => i.item.value).OrderBy(x => x))
+        );
 
-            // Record ingredient quantities
-            var quantities = recipe.itemsNeeded.ToDictionary(
-                ing => ing.item.value,
-                ing => ing.quantity
-            );
-
-            if (!ingredientCombinations.ContainsKey(ingredientKey))
-            {
-                ingredientCombinations[ingredientKey] =
-                    new List<(Dictionary<ushort, int>, ushort, int, RecipeData)>();
-            }
-            ingredientCombinations[ingredientKey]
-                .Add((quantities, recipe.createsItem.value, recipe.quantityCreated, recipe));
-        }
-
-        // Format results
         var results = new Dictionary<string, string>();
-        foreach (var (ingKey, recipesList) in ingredientCombinations)
-        {
-            // Calculate min and max quantities for each ingredient
-            var ingredientRanges = new Dictionary<ushort, IngredientRange>();
-            var resultRanges =
-                new Dictionary<ushort, (IngredientRange Range, List<RecipeData> Recipes)>();
 
-            foreach (var (ingredients, result, quantity, recipe) in recipesList)
+        foreach (var group in grouped)
+        {
+            var recipeList = group.ToList();
+            var ingredientRanges = new Dictionary<ushort, QuantityRange>();
+            var resultRanges =
+                new Dictionary<ushort, (QuantityRange Range, RecipeData FirstRecipe)>();
+
+            foreach (var recipe in recipeList)
             {
-                // Update ingredient range
-                foreach (var (ingName, ingredientQuantity) in ingredients)
+                // Update ingredient ranges
+                foreach (var ingredient in recipe.itemsNeeded)
                 {
-                    if (!ingredientRanges.ContainsKey(ingName))
+                    var id = ingredient.item.value;
+                    if (!ingredientRanges.TryGetValue(id, out var range))
                     {
-                        ingredientRanges[ingName] = new IngredientRange();
+                        range = new QuantityRange();
+                        ingredientRanges[id] = range;
                     }
-                    ingredientRanges[ingName].Min = Math.Min(
-                        ingredientRanges[ingName].Min,
-                        ingredientQuantity
-                    );
-                    ingredientRanges[ingName].Max = Math.Max(
-                        ingredientRanges[ingName].Max,
-                        ingredientQuantity
-                    );
+                    range.Update(ingredient.quantity);
                 }
 
                 // Update result range
-                if (!resultRanges.ContainsKey(result))
+                var resultId = recipe.createsItem.value;
+                if (!resultRanges.TryGetValue(resultId, out var resultData))
                 {
-                    resultRanges[result] = (new IngredientRange(), new List<RecipeData>());
+                    resultData = (new QuantityRange(), recipe);
+                    resultRanges[resultId] = resultData;
                 }
-                resultRanges[result].Range.Min = Math.Min(resultRanges[result].Range.Min, quantity);
-                resultRanges[result].Range.Max = Math.Max(resultRanges[result].Range.Max, quantity);
-                resultRanges[result].Recipes.Add(recipe);
+                resultData.Range.Update(recipe.quantityCreated);
             }
 
             // Build formatted string
-            var ingredientsStr = ingredientRanges
-                .Select(kvp =>
-                    FormatRange(GetDisplayName(recipesList[0].Recipe, kvp.Key), kvp.Value)
-                )
-                .ToList();
+            var firstRecipe = recipeList[0];
+            var ingredientsStr = ingredientRanges.Select(kvp =>
+                FormatRange(GetDisplayName(firstRecipe, kvp.Key), kvp.Value)
+            );
 
-            foreach (var (resultName, (ranges, recipesInRange)) in resultRanges)
+            foreach (var (resultId, (range, recipe)) in resultRanges)
             {
-                var efficiency = CalculateHealPerSlot(recipesInRange[0].createsItem.GetAsset());
+                var resultStr = FormatRange(GetDisplayName(recipe, resultId), range);
 
-                var resultStr = FormatRange(GetDisplayName(recipesInRange[0], resultName), ranges);
-                if (Plugin.ConfigShowHealPerSlot.Value && efficiency > 0)
+                if (Plugin.ConfigShowHealPerSlot.Value)
                 {
-                    resultStr += $"<size=-1> [{efficiency:F2}]</size>";
+                    var efficiency = CalculateHealPerSlot(recipe.createsItem.GetAsset());
+                    if (efficiency > 0)
+                    {
+                        resultStr += $"<size=-1> [{efficiency:F2}]</size>";
+                    }
                 }
 
                 var formula =
-                    string.Join("<size=-1><color=#6D8791> + </color></size>", ingredientsStr)
-                    + "<size=-1><color=#6D8791> = </color></size>"
+                    string.Join($"{SeparatorColor} + {ColorEnd}", ingredientsStr)
+                    + $"{SeparatorColor} = {ColorEnd}"
                     + resultStr;
-                results[ingKey] = formula;
+
+                results[group.Key] = formula;
             }
         }
 
@@ -137,12 +115,10 @@ public static class RecipeAnalyzer
         return healthRegenBuff?.totalValueOverride / inventorySize ?? 0f;
     }
 
-    private static string FormatRange(string itemName, IngredientRange range)
+    private static string FormatRange(string itemName, QuantityRange range)
     {
-        if (range.Min == range.Max)
-        {
-            return $"{itemName}<size=-1><color=#6D8791>x{range.Min}</color></size>";
-        }
-        return $"{itemName}<size=-1><color=#6D8791>x({range.Min}~{range.Max})</color></size>";
+        var quantityStr = range.Min == range.Max ? $"x{range.Min}" : $"x({range.Min}~{range.Max})";
+
+        return $"{itemName}{SeparatorColor}{quantityStr}{ColorEnd}";
     }
 }
