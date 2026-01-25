@@ -11,7 +11,6 @@ using PerfectRandom.Sulfur.Core.UI.Inventory;
 using PerfectRandom.Sulfur.Core.UI.ItemDescription;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace SulfurRecipeBook;
 
@@ -19,18 +18,40 @@ namespace SulfurRecipeBook;
 internal class ReversePatch
 {
     [HarmonyReversePatch]
-    [HarmonyPatch(typeof(ItemDescription), "AddAttribute",
+    [HarmonyPatch(
+        typeof(ItemDescription),
+        "AddAttribute",
         new[] { typeof(string), typeof(int), typeof(string), typeof(string), typeof(bool) },
-        new[] { ArgumentType.Normal, ArgumentType.Ref, ArgumentType.Normal, ArgumentType.Normal, ArgumentType.Normal })]
-    public static void AddTextLineAsAttribute(object instance, string key, ref int childIndex, string value = "", string modifier = "", bool skipSeparator = false) =>
-        throw new NotImplementedException("It's a stub");
+        new[]
+        {
+            ArgumentType.Normal,
+            ArgumentType.Ref,
+            ArgumentType.Normal,
+            ArgumentType.Normal,
+            ArgumentType.Normal,
+        }
+    )]
+    public static void AddTextLineAsAttribute(
+        object instance,
+        string key,
+        ref int childIndex,
+        string value = "",
+        string modifier = "",
+        bool skipSeparator = false
+    ) => throw new NotImplementedException("It's a stub");
 
     [HarmonyReversePatch]
-    [HarmonyPatch(typeof(ItemDescription), "AddDescriptionText",
+    [HarmonyPatch(
+        typeof(ItemDescription),
+        "AddDescriptionText",
         new[] { typeof(string), typeof(int) },
-        new[] { ArgumentType.Normal, ArgumentType.Ref })]
-    public static void AddTextLineAsDescription(object instance, string descriptionText, ref int childIndex) =>
-        throw new NotImplementedException("It's a stub");
+        new[] { ArgumentType.Normal, ArgumentType.Ref }
+    )]
+    public static void AddTextLineAsDescription(
+        object instance,
+        string descriptionText,
+        ref int childIndex
+    ) => throw new NotImplementedException("It's a stub");
 }
 
 [HarmonyPatch]
@@ -72,7 +93,7 @@ internal class RecipeBook
 
         return result;
     }
-    
+
     [HarmonyPostfix]
     [HarmonyPatch(typeof(InventoryUI), "Update")]
     private static void HandlePageNavigationInput()
@@ -87,8 +108,9 @@ internal class RecipeBook
         {
             newPage = _currentPage + 1;
         }
-        if (newPage == _currentPage) return;
-        
+        if (newPage == _currentPage)
+            return;
+
         _currentPage = newPage;
         RefreshItemDescription();
         Plugin.Logger.LogInfo($"Switched to page {_currentPage}");
@@ -96,7 +118,8 @@ internal class RecipeBook
 
     private static void RefreshItemDescription()
     {
-        if (_lastItemDescription is null) return;
+        if (_lastItemDescription is null)
+            return;
         var inventoryItem = GetInventoryItem(_lastItemDescription);
 
         // Trigger OnDisable to clear pooled UI elements
@@ -106,8 +129,11 @@ internal class RecipeBook
     }
 
     [HarmonyPostfix]
-    [HarmonyPatch(typeof(ItemDescription), nameof(ItemDescription.Setup), new Type[] { typeof(InventoryItem) })]
-    private static void DescriptionSetupPostfix(ItemDescription __instance, InventoryItem inventoryItem)
+    [HarmonyPatch(typeof(ItemDescription), nameof(ItemDescription.Setup), typeof(InventoryItem))]
+    private static void DescriptionSetupPostfix(
+        ItemDescription __instance,
+        InventoryItem inventoryItem
+    )
     {
         var rectTransform = __instance.gameObject.GetComponent<RectTransform>();
 
@@ -132,12 +158,15 @@ internal class RecipeBook
             // Plugin.Logger.LogInfo("No recipe found for this item.");
             return;
         }
-        
+
         var results = RecipeAnalyzer.AnalyzeRecipes(recipes);
         Plugin.Logger.LogInfo($"Found {results.Count} recipes for this item.");
         _totalPages = (int)Math.Ceiling((double)results.Count / ItemsPerPage);
-        var currentPageItems = results.Skip(_currentPage * ItemsPerPage).Take(ItemsPerPage).ToList();
-        
+        var currentPageItems = results
+            .Skip(_currentPage * ItemsPerPage)
+            .Take(ItemsPerPage)
+            .ToList();
+
         var contentTransform = GetContentTransform(__instance);
 
         // Set font atlasPopulationMode to Static before adding text
@@ -153,7 +182,11 @@ internal class RecipeBook
         }
 
         var childIndex = contentTransform.childCount;
-        ReversePatch.AddTextLineAsAttribute(__instance, $"Recipes ({_currentPage + 1} / {_totalPages}):", ref childIndex);
+        ReversePatch.AddTextLineAsAttribute(
+            __instance,
+            $"Recipes ({_currentPage + 1} / {_totalPages}):",
+            ref childIndex
+        );
 
         foreach (var recipe in currentPageItems)
         {

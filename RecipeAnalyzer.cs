@@ -33,9 +33,7 @@ public static class RecipeAnalyzer
         foreach (var recipe in recipes)
         {
             // 材料をidentifierでソートしてキーを作成
-            var ingredients = recipe
-                .itemsNeeded.Select(i => i.item.value)
-                .OrderBy(name => name);
+            var ingredients = recipe.itemsNeeded.Select(i => i.item.value).OrderBy(name => name);
             var ingredientKey = string.Join("+", ingredients);
 
             // 材料の数量を記録
