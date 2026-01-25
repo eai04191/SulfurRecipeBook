@@ -17,7 +17,7 @@ public static class RecipeAnalyzer
 {
     public static Dictionary<string, string> AnalyzeRecipes(List<RecipeData> recipes)
     {
-        // 材料の組み合わせごとの分析結果を保持
+        // Hold analysis results for each ingredient combination
         var ingredientCombinations =
             new Dictionary<
                 string,
@@ -29,14 +29,14 @@ public static class RecipeAnalyzer
                 )>
             >();
 
-        // レシピを材料の組み合わせでグループ化
+        // Group recipes by ingredient combination
         foreach (var recipe in recipes)
         {
-            // 材料をidentifierでソートしてキーを作成
+            // Create key by sorting ingredients by identifier
             var ingredients = recipe.itemsNeeded.Select(i => i.item.value).OrderBy(name => name);
             var ingredientKey = string.Join("+", ingredients);
 
-            // 材料の数量を記録
+            // Record ingredient quantities
             var quantities = recipe.itemsNeeded.ToDictionary(
                 ing => ing.item.value,
                 ing => ing.quantity
@@ -51,18 +51,18 @@ public static class RecipeAnalyzer
                 .Add((quantities, recipe.createsItem.value, recipe.quantityCreated, recipe));
         }
 
-        // 結果をフォーマット
+        // Format results
         var results = new Dictionary<string, string>();
         foreach (var (ingKey, recipesList) in ingredientCombinations)
         {
-            // 材料ごとの使用量の最小値と最大値を計算
+            // Calculate min and max quantities for each ingredient
             var ingredientRanges = new Dictionary<ushort, IngredientRange>();
             var resultRanges =
                 new Dictionary<ushort, (IngredientRange Range, List<RecipeData> Recipes)>();
 
             foreach (var (ingredients, result, quantity, recipe) in recipesList)
             {
-                // 材料の範囲を更新
+                // Update ingredient range
                 foreach (var (ingName, ingredientQuantity) in ingredients)
                 {
                     if (!ingredientRanges.ContainsKey(ingName))
@@ -79,7 +79,7 @@ public static class RecipeAnalyzer
                     );
                 }
 
-                // 生成物の範囲を更新
+                // Update result range
                 if (!resultRanges.ContainsKey(result))
                 {
                     resultRanges[result] = (new IngredientRange(), new List<RecipeData>());
@@ -89,7 +89,7 @@ public static class RecipeAnalyzer
                 resultRanges[result].Recipes.Add(recipe);
             }
 
-            // 結果を整形
+            // Build formatted string
             var ingredientsStr = ingredientRanges
                 .Select(kvp =>
                     FormatRange(GetDisplayName(recipesList[0].Recipe, kvp.Key), kvp.Value)
