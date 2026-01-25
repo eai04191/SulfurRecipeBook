@@ -5,7 +5,7 @@
 BepinEx plugin for the game [SULFUR](https://store.steampowered.com/app/2124120/SULFUR/).
 Item tooltips show recipes that can be crafted with that item.
 
-![Screenshot](https://github.com/user-attachments/assets/4d4f0970-bee2-41b8-b343-f05662cf3599)
+![Screenshot](https://github.com/user-attachments/assets/99e4397a-543c-4f70-aab6-a928c45d4abf)
 
 ## Installation
 
