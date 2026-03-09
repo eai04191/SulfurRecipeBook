@@ -2,7 +2,7 @@
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
-using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace SulfurRecipeBook;
 
@@ -12,8 +12,8 @@ public class Plugin : BaseUnityPlugin
     internal static new ManualLogSource Logger;
 
     public static ConfigEntry<bool> ConfigShowHealPerSlot;
-    public static ConfigEntry<KeyCode> ConfigPrevPageKey;
-    public static ConfigEntry<KeyCode> ConfigNextPageKey;
+    public static ConfigEntry<Key> ConfigPrevPageKey;
+    public static ConfigEntry<Key> ConfigNextPageKey;
 
     private void Awake()
     {
@@ -32,14 +32,14 @@ public class Plugin : BaseUnityPlugin
         ConfigPrevPageKey = Config.Bind(
             "Keybinds",
             "PrevPageKey",
-            KeyCode.F1,
+            Key.F1,
             "Key to go to previous recipe page"
         );
 
         ConfigNextPageKey = Config.Bind(
             "Keybinds",
             "NextPageKey",
-            KeyCode.F2,
+            Key.F2,
             "Key to go to next recipe page"
         );
 

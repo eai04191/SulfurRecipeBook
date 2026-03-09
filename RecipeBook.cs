@@ -11,6 +11,7 @@ using PerfectRandom.Sulfur.Core.UI.Inventory;
 using PerfectRandom.Sulfur.Core.UI.ItemDescription;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace SulfurRecipeBook;
 
@@ -98,13 +99,17 @@ internal class RecipeBook
     [HarmonyPatch(typeof(InventoryUI), "Update")]
     private static void HandlePageNavigationInput()
     {
+        var keyboard = Keyboard.current;
+        if (keyboard == null)
+            return;
+
         var newPage = _currentPage;
 
-        if (Input.GetKeyDown(Plugin.ConfigPrevPageKey.Value) && _currentPage > 0)
+        if (keyboard[Plugin.ConfigPrevPageKey.Value].wasPressedThisFrame && _currentPage > 0)
         {
             newPage = _currentPage - 1;
         }
-        else if (Input.GetKeyDown(Plugin.ConfigNextPageKey.Value) && _currentPage < _totalPages - 1)
+        else if (keyboard[Plugin.ConfigNextPageKey.Value].wasPressedThisFrame && _currentPage < _totalPages - 1)
         {
             newPage = _currentPage + 1;
         }

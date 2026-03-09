@@ -47,5 +47,11 @@
         <Reference Include="UnityEngine.UI" Private="False">
             <HintPath>G:\Libraries\Steam\steamapps\common\SULFUR\Sulfur_Data\Managed\UnityEngine.UI.dll</HintPath>
         </Reference>
+        <Reference Include="Unity.InputSystem" Private="False">
+            <HintPath>G:\Libraries\Steam\steamapps\common\SULFUR\Sulfur_Data\Managed\Unity.InputSystem.dll</HintPath>
+        </Reference>
+    </ItemGroup>
+    <ItemGroup>
+        <Compile Remove="game_source/ItemDescription.cs" />
     </ItemGroup>
 </Project>
